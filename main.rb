@@ -59,24 +59,40 @@ class Board
 
   def initialize
     @board = []
+    @result = []
   end
 
-  def newline(code, guess)
+  def newline(guess)
     result = "#{guess.join} | "
-    result += code.map.with_index do |pin, i|
-      if pin == guess[i]
-        'B'
-      elsif guess.any? { |answer| answer == pin}
-        'W'
-      else
-        ''
-      end
-    end.sort.join
+    @result.each { |key, val| result += key.to_s*val}
     @board.push(result)
   end
 
   def render
     @board.each_with_index { |line, i| puts "Guess #{i + 1}: #{line}" }
+  end
+
+  def result(code, guess)
+    pins = code.each_with_index.reduce({ B: 0, W: 0, C: [] }) do |result, (pin, i)|
+      if pin == guess[i]
+        result[:B] += 1
+        result[:C].push(:B)
+      else
+        result[:C].push(pin)
+      end
+      result
+    end
+    guess.each_with_index do |pin, i|
+      next if pins[:C][i] == :B
+
+      match = pins[:C].index(pin)
+      if match
+        pins[:W] += 1 
+        pins[:C][match] = :W
+      end
+    end
+    pins.delete(:C)
+    @result = pins
   end
 end
 
@@ -112,6 +128,7 @@ class Game
       else
         selector_loop
       end
+      puts "\nScore is Player: #{@player_score} to Computer: #{@computer_score}"
       puts "\nPlay again? (n to quit)"
       again = gets.downcase.chomp
       return if again == 'n'
@@ -122,6 +139,7 @@ class Game
     @selector.generate_code
     while @guesser.guess_count <= Rules.MAX_GUESSES do 
       @guesser.guess_count += 1
+      puts @selector.code
       loop do
         puts "\nGuess a #{Rules.CODE_LENGTH} length code (type 'help' for options)"
         input = gets.upcase.chomp
@@ -139,11 +157,12 @@ class Game
         break
       end
       puts "The code did not match."
-      @board.newline(@selector.code, @guesser.code)
+      @board.result(@selector.code, @guesser.code)
+      @board.newline(@guesser.code)
       @board.render
     end
     puts 'You could not guess the code in time' if @guesser.guess_count >= Rules.MAX_GUESSES
-    @computer_score += 1 + @guess.guess_count
+    @computer_score += 1 + @guesser.guess_count
   end
 
   def selector_loop
