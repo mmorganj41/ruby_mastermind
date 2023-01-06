@@ -38,24 +38,58 @@ class Code
 end
 
 class Guesser < Code
-  attr_reader :code
+  attr_reader :code, :guess_array
   attr_accessor :guess_count
 
   def initialize
     @guess_count = 0
   end
 
+  def make_random_guess
+    @code = @guess_array.sample
+  end
+
+  def generate_guess_array
+    @guess_array = Rules.COLORS.keys.map(&:to_s).repeated_permutation(Rules.CODE_LENGTH).to_a
+  end
+
+  def remove_guesses(guess, result)
+    @guess_array.select! do |option|
+      matches = 0
+      temp_guess = guess.dup
+      temp_option = option.dup.map.with_index do |val, i|
+        if val == temp_guess[i]
+          matches += 1
+          temp_guess[i] = :B
+          next :B
+        end
+        val
+      end
+      next false unless result[:B] == matches
+      next false unless result[:W] == temp_option.count do |val, i|
+        next false if val == :B
+
+        index = temp_guess.index(val)
+        next false if index.nil?
+        temp_guess[index] = :W
+        temp_option[index] = :W
+        true
+      end
+      true
+    end
+  end
 end
 
 class Selector < Code
   attr_reader :code
+
   def generate_code
     @code = Array.new(Rules.CODE_LENGTH) { Rules.COLORS.keys.sample.to_s }
   end
 end
 
 class Board
-  attr_reader :board
+  attr_reader :board, :result
 
   def initialize
     @board = []
@@ -64,7 +98,7 @@ class Board
 
   def newline(guess)
     result = "#{guess.join} | "
-    @result.each { |key, val| result += key.to_s*val}
+    @result.each { |key, val| result += key.to_s * val}
     @board.push(result)
   end
 
@@ -72,7 +106,7 @@ class Board
     @board.each_with_index { |line, i| puts "Guess #{i + 1}: #{line}" }
   end
 
-  def result(code, guess)
+  def generate_result(code, guess)
     pins = code.each_with_index.reduce({ B: 0, W: 0, C: [] }) do |result, (pin, i)|
       if pin == guess[i]
         result[:B] += 1
@@ -139,7 +173,6 @@ class Game
     @selector.generate_code
     while @guesser.guess_count <= Rules.MAX_GUESSES do 
       @guesser.guess_count += 1
-      puts @selector.code
       loop do
         puts "\nGuess a #{Rules.CODE_LENGTH} length code (type 'help' for options)"
         input = gets.upcase.chomp
@@ -152,12 +185,12 @@ class Game
           puts "Invalid input."
         end
       end
-      if game_over?()
+      if game_over?
         puts "You win in #{@guesser.guess_count} guesses."
         break
       end
       puts "The code did not match."
-      @board.result(@selector.code, @guesser.code)
+      @board.generate_result(@selector.code, @guesser.code)
       @board.newline(@guesser.code)
       @board.render
     end
@@ -166,7 +199,36 @@ class Game
   end
 
   def selector_loop
-    puts "not implemented"
+    @guesser.generate_guess_array
+    loop do
+      puts "\nMake a #{Rules.CODE_LENGTH} length code (type 'help' for options)"
+      input = gets.upcase.chomp
+      if input == 'HELP'
+        help_message
+      elsif @selector.valid_code?(input)
+        @selector.make_code(input)
+        break
+      else
+        puts "Invalid input."
+      end
+    end
+    while @guesser.guess_count <= Rules.MAX_GUESSES do
+      @guesser.guess_count += 1
+      @guesser.make_random_guess
+      @board.generate_result(@selector.code, @guesser.code)
+      puts "\n"
+      @board.newline(@guesser.code)
+      @board.render
+      if game_over?
+        puts "\nComputer won in #{@guesser.guess_count} guesses."
+        break
+      end
+      @guesser.remove_guesses(@guesser.code, @board.result)
+      puts "The code did not match."
+      sleep(3)
+    end
+    puts 'The computer could not guess the code in time' if @guesser.guess_count >= Rules.MAX_GUESSES
+    @player_score += 1 + @guesser.guess_count
   end 
 end
 
