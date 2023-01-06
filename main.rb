@@ -67,15 +67,18 @@ class Guesser < Code
         val
       end
       next false unless result[:B] == matches
-      next false unless result[:W] == temp_option.count do |val, i|
-        next false if val == :B
+
+      half_match = temp_option.count do |val, i|
+        next false if val == :B or val == :W
 
         index = temp_guess.index(val)
         next false if index.nil?
+
         temp_guess[index] = :W
-        temp_option[index] = :W
         true
       end
+      next false unless result[:W] == half_match
+
       true
     end
   end
