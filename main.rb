@@ -46,6 +46,7 @@ class Guesser < Code
   end
 
   def make_random_guess
+    generate_guess_array if @guess_array.length == 0
     @code = @guess_array.sample
   end
 
@@ -171,7 +172,7 @@ class Game
 
   def guesser_loop
     @selector.generate_code
-    while @guesser.guess_count <= Rules.MAX_GUESSES do 
+    until @guesser.guess_count >= Rules.MAX_GUESSES do 
       @guesser.guess_count += 1
       loop do
         puts "\nGuess a #{Rules.CODE_LENGTH} length code (type 'help' for options)"
@@ -212,7 +213,7 @@ class Game
         puts "Invalid input."
       end
     end
-    while @guesser.guess_count <= Rules.MAX_GUESSES do
+    until @guesser.guess_count >= Rules.MAX_GUESSES do
       @guesser.guess_count += 1
       @guesser.make_random_guess
       @board.generate_result(@selector.code, @guesser.code)
